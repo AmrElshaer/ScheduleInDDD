@@ -53,8 +53,7 @@ namespace ScheduleInDDD.Core.ScheduleAggregate
         {
             Guard.Against.Null(appointment, nameof(appointment));
             var appointmentToDelete = _appointments
-                                      .Where(a => a.Id == appointment.Id)
-                                      .FirstOrDefault();
+                                      .FirstOrDefault(a => a.Id == appointment.Id);
 
             if (appointmentToDelete != null)
             {
@@ -62,8 +61,8 @@ namespace ScheduleInDDD.Core.ScheduleAggregate
             }
 
             MarkConflictingAppointments();
-
-            // TODO: Add appointment deleted event and show delete message in Blazor client app
+            var deleteAppointmentEvent= new AppointmentDeletedEvent(appointmentToDelete);
+            Events.Add(deleteAppointmentEvent);
         }
 
 
@@ -73,18 +72,17 @@ namespace ScheduleInDDD.Core.ScheduleAggregate
         {
             foreach (var appointment in _appointments)
             {
-                // same patient cannot have two appointments at same time
                 var potentiallyConflictingAppointments = _appointments
-                    .Where(a => a.PatientId == appointment.PatientId &&
-                    a.TimeRange.Overlaps(appointment.TimeRange) &&
-                    a != appointment)
-                    .ToList();
-
-                // TODO: Add a rule to mark overlapping appointments in same room as conflicting
-                // TODO: Add a rule to mark same doctor with overlapping appointments as conflicting
-
+                    .Where(a =>
+                         a.TimeRange.Overlaps(appointment.TimeRange) &&
+                         a != appointment
+                     )
+                    .Where(a =>
+                        a.PatientId == appointment.PatientId ||
+                        a.RoomId == appointment.RoomId ||
+                        a.DoctorId == appointment.DoctorId
+                    ).ToList();
                 potentiallyConflictingAppointments.ForEach(a => a.IsPotentiallyConflicting = true);
-
                 appointment.IsPotentiallyConflicting = potentiallyConflictingAppointments.Any();
             }
         }
