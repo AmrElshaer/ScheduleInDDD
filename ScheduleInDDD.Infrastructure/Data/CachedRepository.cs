@@ -122,9 +122,19 @@ namespace ScheduleInDDD.Infrastructure.Data
 
         public Task<T> GetBySpecAsync(ISpecification<T> specification, CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            if (specification.CacheEnabled)
+            {
+                string key = $"{specification.CacheKey}-GetBySpecAsync";
+                _logger.LogInformation("Checking cache for " + key);
+                return _cache.GetOrCreate(key, entry =>
+                {
+                    entry.SetOptions(_cacheOptions);
+                    _logger.LogWarning("Fetching source data for " + key);
+                    return _sourceRepository.GetBySpecAsync(specification, cancellationToken);
+                });
+            }
+            return _sourceRepository.GetBySpecAsync(specification);
         }
-
         public Task<List<T>> ListAsync(CancellationToken cancellationToken = default)
         {
             string key = $"{typeof(T).Name}-List";
